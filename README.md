@@ -6,3 +6,5 @@ Build the APK with GitHub Actions (`.github/workflows/build.yml`).
 3. **User build:** copy the public key line (Menu > Settings > Licence & security) into `www/pubkey.js` in the user repository.
 4. **Server (licences, payments, cloud backup):** follow `server/README.md`, put its URL in `www/config.js`.
 5. Details: `RELEASE_NOTES.md`, `MIGRATION_AND_ROLLBACK.md`, `tests/README.md`. No secrets are stored in this repository.
+6. **Google Play:** see `PLAY_STORE_GUIDE.md` (release workflow `release-aab.yml`, privacy-policy template in `docs/`).
+7. Upgrading from v8: read `MIGRATION_AND_ROLLBACK.md` first.

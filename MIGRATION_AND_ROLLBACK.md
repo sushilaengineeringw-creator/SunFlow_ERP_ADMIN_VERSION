@@ -1,16 +1,7 @@
-# Upgrade, data migration and rollback (v7 → v8)
+# Upgrade, data migration and rollback (v8 → v9)
 
-* Install the new APK **over** the old one (same package id and `debug.keystore`). Data stays.
-* **Before upgrading: Menu > Backup/Restore > Export backup file (include documents).** Keep the file.
-* v8 only *adds* data keys (`ab` auto-backup settings, `set.rnd` for new document types, `nums.e/f`, `co.*` already
-  existed). Existing customers, purchase bills, business invoices, PM applications, quotations/invoices, bank accounts,
-  numbering and attachments are untouched. Saved company profile, bank accounts and terms stay exactly as saved.
-* **New installs start with a blank company profile** (no company name, bank or terms pre-filled). Existing installs keep
-  what they already saved.
-* IndexedDB `sewdocs` is upgraded from version 1 to 2 (adds the `bk` store for app backups). Attachments are untouched.
-* Backup file format v2 adds a checksum; v6/v7 backup files are still accepted. Restoring **replaces** the data (no merging,
-  so no duplicates) and first saves a safety copy (“pre-restore”) inside the app.
-* **Rollback:** install the previous APK (same keystore). If the app does not start, uninstall it, install the old APK and
-  use **Restore** with the backup you exported before upgrading. v8 backups restore into v7 (extra keys are ignored).
-* Server: updating `Code.gs` is additive (new columns/sheets are created); to roll back paste the old script and redeploy
-  a new version.
+* Install the new APK **over** the old one (same package id and `debug.keystore`). **First export a backup file** (Menu › Backup / Restore).
+* Existing data becomes the first company (“c1”, same storage key as before). Nothing is deleted or recalculated. Licence users/plans move to a shared store (`sew_adm2`); the theme choice is kept app-wide (`sew_pref`); everyone opens in Light mode once after the upgrade.
+* Bills / invoices that had no date keep their financial year and are shown under “No date” – they are no longer treated as uploaded today.
+* Update the server: paste the new `server/Code.gs`, then **Deploy › Manage deployments › edit › New version** (URL unchanged). New columns (e-mail, password override, OTP) are added automatically. Allow the Gmail send permission when asked (for the password-reset e-mail).
+* **Rollback:** install the previous APK; if it does not start, uninstall it, install the old APK and restore the backup. v9 backups restore into v8 (extra keys are ignored).

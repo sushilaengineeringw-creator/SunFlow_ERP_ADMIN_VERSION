@@ -1,47 +1,25 @@
-# SunFlow ERP v8.0 – release notes
-
-## Architecture (inspected)
-Capacitor Android shell + single-page web app (`www/index.html`); records in localStorage, attachments/app backups in
-IndexedDB; PDF via jsPDF; Excel via SheetJS; offline signed licences (ECDSA) + optional Google Apps Script server.
+# SunFlow ERP v9.0 – release notes
 
 ## The 10 developments
-1. **Licence system** – `server/Code.gs` (Google Sheet): create users, short activation code, validity, activate, extend,
-   suspend / reactivate / revoke, device reset, history; **payments** (amount, mode, UPI reference, date, days → extension);
-   Admin panel (administrator only, Menu > Admin panel). App re-validates on launch/login, ≤30 s between actions, every
-   5 min, on resume and when online again; configurable offline grace (`SEW_GRACE_H`). Reinstall / second phone / old
-   backup / phone-date changes cannot revive or restart a licence. Licence data is kept out of business backups.
-2. **Sync & auto backup** – Auto backup every 15 days or monthly, to app storage or encrypted cloud (Google Drive via the
-   server), with last/next/status/destination/failure shown, Backup now, Export, Restore (file / app / cloud), checksum
-   validation, restore replaces (no duplicates) with a safety copy, v6/v7 backups accepted. *Real multi-device sync is not
-   possible in this offline-first design* – cloud backup/restore is the supported alternative.
-3. **Bottom bar** – Settings and Summary removed; 7 compact buttons (Menu, Dashboard, Sales, Purchase, Customers, Business,
-   Reports). Settings remains in the Menu and header gear.
-4. **Financial year** – FY 2020–21 … 2029–30 (+ any year that has data) and All years; opens on the current FY from the phone
-   date (1 April boundary, timezone setting); chosen year is session-only; a banner shows when you view a non-current year.
-5. **Settings UI** – grouped icon rows with titles + one-line descriptions, no wrapping, 60 px touch rows, new sub-page header.
-6. **Company name** – header shows it only after a profile is saved; no hard-coded company anywhere (new installs are blank).
-7. **Summary** – moved to Customers › PM Surya Ghar › Summary (with filter, FY, back link); removed from bottom bar/menu.
-8. **Menu** – Sales (Tax Invoice, Quotation, Delivery Challan, **Sales Order**, **Proforma Invoice**), Purchase (Bill, Order),
-   Reports (Business: Sales, Purchase, Profit & Loss, Party Statement, All Parties; GST: GSTR-1, 3B, 2, 9). GST reports are
-   reference summaries from saved data and say so.
-9. **Analytics first** – Dashboard, Purchase (cards → graph → vendors → heatmap → FY summary → bills → entry → import),
-   new Sales overview, PM Surya Ghar and Business registers show analytics/tables before forms and imports.
-10. **New logo & icon** – sun + solar panel + growth bars on a deep-teal tile; SVG/PNG assets, Android icons, favicon,
-    web manifest; used in header, login/activation, Settings About and Menu.
+1. **Forgot password** – Users: enter the registered mobile number → a 6-digit code is e-mailed (Google MailApp from your Gmail, ≤1 code/min, valid 10 min, blocked after 5 wrong tries) → set a new password. The admin can also e-mail-register users and **reset a password** from the Admin panel. **Admin:** a one-time **recovery code** (created at owner setup, renewable in Settings › Licence & security) lets the admin set a new password offline. *SMS OTP is not included* (needs a paid SMS gateway), and an e-mail/SMS code cannot unlock the admin key, which never leaves the phone.
+2. **Companies & FY** – One app name (“SunFlow ERP”, one line). **Multiple companies**: each has its own data; add / switch / delete in Settings › Companies or by tapping the company name under the app name; licence, users and theme are shared. The **Financial-year dropdown moved to Settings** (a chip on each page opens it); the app still opens on the current FY.
+3. **Light mode by default** (a theme you choose afterwards is remembered).
+4. **Restore → sync → reports** – after every restore (and on demand in Settings › Backup) the app re-links parties/items from restored invoices, moves numbering past restored numbers, rebuilds all reports, verifies that register = customer-wise = monthly totals, flags undated records, and offers **“Download all reports (Excel)”** – one workbook with a sheet per report.
+5. **Invoice register** – fixed column widths, centred headers, customer / details limited to two lines, chronological order (oldest first), 50 rows per page.
+6. **Purchase bills** – same treatment; the description column is capped at two lines.
+7. **Real dates** – dates are read in every common format (dd-mm-yyyy, dd/mm/yy, 15-Apr-2026, Excel serials…). A bill or invoice without a date is **never given today's date**; it appears under “No date”. Graphs have a **Monthly / Quarterly / Yearly** switch, always by invoice date; new Monthly, Quarterly and Yearly summary reports; the FY always shows its 12 months / 4 quarters.
+8. **Demo notice** – one thin continuous right-to-left text line (DEMO VERSION · start · expiry · days left · offline / renewal notes). No window, no overlay.
+9. **Stability & performance** – 248 automated checks; paged registers (only one page is drawn), debounced saving, `allowBackup` off, safe restore with safety copy. Measured in tests: 22 reports on 900 invoices + 900 bills + 600 register rows + 120 customers in ~0.2 s, registers ~65 ms, dashboard ~0.3 s, backup + checksum ~30 ms, server list of 1,500 users ~11 ms (50 per page).
+10. **Admin panel** – one compact line per user (name · status · days left), tap to open full details and actions; server-side search, status filter and paging (50 per page) for 1,000+ users. Fixed a bug where the **Modules** sheet also picked up the “New user” tick-boxes (duplicates / extra modules).
+
+## Google Play
+`PLAY_STORE_GUIDE.md`, `docs/privacy-policy.html` (template), `scripts/android-release.js` and `.github/workflows/release-aab.yml` (signed .aab, Capacitor 8 = Android API 36, Java 21, secrets from GitHub). **Untested here** – I could not run an Android build; run it once and send me the log if it fails. Approval is Google's decision; the guide covers the usual rejection reasons (target API, privacy policy, Data safety, reviewer login, permissions).
 
 ## Known limitations (not faked)
-* No real multi-device sync; business data stays on each phone. A modified APK can remove the lock screen.
-* Auto backup cannot run in the background (Android restriction): a due backup runs when the app is opened. App-storage
-  backups are lost if the app is uninstalled; use cloud or exported files. Cloud backups hold data only (not attachments).
-* “GSTR-2” is not an active return (GSTR-2B comes from the GST portal); GSTR-3B/9 are summaries, not filed returns.
-* P&L = recorded sales vs purchases only; no expense register / cash book / stock in this app.
-* A5 / landscape printing not supported. Screens were checked with automated tests and rendered PDFs/icons, not on a physical
-  phone: please check Settings/Menu layout on your device.
-* Live Google deployment of `Code.gs` (and Drive permission) must be done by you; tested here against a mock.
+* No real multi-device sync; data stays on each phone. Cloud backup (encrypted, Drive) is the supported alternative. A modified APK can remove the lock screen.
+* SMS OTP not included. E-mail OTP needs the licence server and a registered e-mail.
+* Auto backup can run only when the app is open (Android).
+* GST reports are reference summaries; P&L = recorded sales vs purchases only; no expense register / cash book / stock.
+* The “All reports” Excel and the Play Store files could not be tried on a phone here.
 
-## Tests – last run: **172 passed, 0 failed** (`cd tests && npm install && npm test`)
-Includes: GST/discount/round-off maths vs your sample estimate & invoices, PDF pagination, print settings, reports
-reconciliation, financial-year boundaries (31 Mar / 1 Apr), company-name header, backup/restore (checksum, legacy, replace,
-company-profile retained, safety copy), 15-day/monthly schedule, encrypted cloud backup & restore, wrong passphrase,
-licence: activate by short code, suspend while logged in, restart, reactivate, expiry, hour countdown, grace, clock change,
-second device/reinstall, payment extension, forged code, wrong admin secret, old backup cannot revive licence.
+## Tests – last run: **248 passed, 0 failed** (`cd tests && npm install && npm test`)
