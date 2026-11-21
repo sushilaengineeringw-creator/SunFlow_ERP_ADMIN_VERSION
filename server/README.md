@@ -43,3 +43,8 @@ extends from today or from its end date), Suspend / Reactivate, change modules, 
   operation (and true multi-device sync) would require moving all data to a server – a larger redesign.
 * Apps Script free quotas apply (about 90 min of script run time per day for a normal Gmail account – enough for a few
   dozen active users). Anyone with the Web app URL can call `check`; only the ADMIN_SECRET can create / suspend / extend.
+
+## New in v9
+* **Password reset by e-mail:** register an e-mail for the user (New user form or user › E-mail). Codes are sent with Google `MailApp` from your account (free daily quota – about 100 e-mails on a normal Gmail account). Re-deploy as “New version” and accept the “send e-mail” permission.
+* **Admin list** is paginated and filtered on the server (50 per page): `list` returns light rows, `user` returns the details of one user – suitable for 1,000+ users.
+* Admin actions added: `email`, `setpw` (admin resets a user's password).

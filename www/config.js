@@ -4,3 +4,4 @@ const SEW_SERVER='https://script.google.com/macros/s/AKfycby-OhwfaYHVRqI7KNiKExL
 const SEW_CHECK_MIN=5;   // re-check the licence every N minutes while the app is open
 const SEW_GRACE_H=72;    // hours the app may stay offline after the last successful check
 const SEW_SUPPORT='Sushila Engineering Works'; // who users should contact (shown on lock / renewal screens)
+const SEW_PRIVACY_URL='';  // public link to your privacy policy (needed for Google Play); shown in Settings

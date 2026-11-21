@@ -4,7 +4,7 @@
  * Deploy as Web app: Execute as Me, Who has access: Anyone.
  */
 var COLS = {
-  lic: ['id', 'name', 'mobile', 'type', 'plan', 'days', 'mods', 'status', 'act', 'exp', 'created', 'lastSeen', 'dev', 'code', 'tok'],
+  lic: ['id', 'name', 'mobile', 'type', 'plan', 'days', 'mods', 'status', 'act', 'exp', 'created', 'lastSeen', 'dev', 'code', 'tok', 'email', 'pws', 'pwh', 'otp', 'otpx', 'otpn'],
   log: ['time', 'id', 'event', 'detail'],
   pay: ['time', 'id', 'amount', 'mode', 'ref', 'paid', 'days', 'note'],
   fb: ['time', 'stars', 'text', 'who']
@@ -41,7 +41,7 @@ function status_(r, now) {
 }
 function view_(r, now) {
   return { ok: true, st: status_(r, now), now: now, act: Number(r.act) || 0, exp: Number(r.exp) || 0, plan: r.plan, type: r.type,
-    days: Number(r.days), name: r.name, mods: r.mods ? String(r.mods).split(',') : [] };
+    days: Number(r.days), name: r.name, mods: r.mods ? String(r.mods).split(',') : [], pw: r.pwh ? { s: String(r.pws), h: String(r.pwh) } : null };
 }
 
 function doGet() { return out_({ ok: true, service: 'SunFlow ERP licence server' }); }
@@ -53,6 +53,9 @@ function doPost(e) {
     var q = JSON.parse(e.postData.contents), now = Date.now();
     if (q.a === 'check' || q.a === 'activate') return out_(client_(q, now));
     if (q.a === 'redeem') return out_(redeem_(q));
+    if (q.a === 'pwinfo') { var pr = find_(q.id); return out_({ ok: true, pw: pr && pr.pwh ? { s: String(pr.pws), h: String(pr.pwh) } : null }); }
+    if (q.a === 'fpw_request') return out_(fpwRequest_(q, now));
+    if (q.a === 'fpw_reset') return out_(fpwReset_(q, now));
     if (q.a === 'feedback') {
       sheet_('fb').appendRow([now, Math.max(1, Math.min(5, Number(q.stars) || 0)), String(q.text || '').slice(0, 1000), String(q.who || '').slice(0, 80)]);
       return out_({ ok: true });
@@ -89,20 +92,32 @@ function client_(q, now) {
 function admin_(q, now) {
   if (!isAdmin_(q)) { Utilities.sleep(1500); return { ok: false, err: 'denied' }; }
   var op = q.op, r;
-  if (op === 'list') {
-    var logs = rows_('log').slice(-500), by = {}, pays = {};
-    logs.forEach(function (l) { (by[l.id] = by[l.id] || []).push({ t: l.time, e: l.event, d: l.detail }); });
-    rows_('pay').forEach(function (p) { (pays[p.id] = pays[p.id] || []).push({ t: p.time, amount: p.amount, mode: p.mode, ref: p.ref, paid: p.paid, days: p.days, note: p.note }); });
-    return { ok: true, now: now, users: rows_('lic').map(function (x) {
-      var v = view_(x, now); v.id = String(x.id); v.mobile = String(x.mobile); v.created = x.created; v.lastSeen = Number(x.lastSeen) || 0;
-      v.dev = x.dev ? String(x.dev).slice(0, 6) : ''; v.code = x.code || ''; v.log = (by[x.id] || []).slice(-12); v.pays = (pays[x.id] || []).slice(-10); return v; }) };
+  if (op === 'list') { // light, paginated, filtered rows (works for 1000+ users)
+    var all = rows_('lic'), counts = { all: all.length, active: 0, demo: 0, pending: 0, expired: 0, suspended: 0, revoked: 0 }, q2 = String(q.q || '').toLowerCase(), want = q.status && q.status !== 'all' ? q.status : '', out = [];
+    all.forEach(function (x) {
+      var st = status_(x, now); if (counts[st] !== undefined) counts[st]++;
+      if (want && st !== want) return;
+      if (q2 && (String(x.name) + ' ' + x.mobile + ' ' + x.code + ' ' + x.email).toLowerCase().indexOf(q2) < 0) return;
+      out.push({ id: String(x.id), name: x.name, mobile: String(x.mobile), type: x.type, plan: x.plan, days: Number(x.days), st: st, act: Number(x.act) || 0, exp: Number(x.exp) || 0, lastSeen: Number(x.lastSeen) || 0, created: Number(x.created) || 0 });
+    });
+    out.sort(function (a, b) { return b.created - a.created; });
+    var size = Math.max(10, Math.min(100, Number(q.size) || 50)), page = Math.max(0, Number(q.page) || 0);
+    return { ok: true, now: now, total: out.length, counts: counts, page: page, size: size, users: out.slice(page * size, page * size + size) };
+  }
+  if (op === 'user') { // full details of one user
+    var x = find_(q.id); if (!x) return { ok: false, err: 'unknown user' };
+    var v = view_(x, now); v.id = String(x.id); v.mobile = String(x.mobile); v.created = x.created; v.lastSeen = Number(x.lastSeen) || 0;
+    v.dev = x.dev ? String(x.dev).slice(0, 6) : ''; v.code = x.code || ''; v.email = x.email || ''; v.pw = null;
+    v.log = rows_('log').filter(function (l) { return String(l.id) === String(x.id); }).slice(-12).map(function (l) { return { t: l.time, e: l.event, d: l.detail }; });
+    v.pays = rows_('pay').filter(function (p) { return String(p.id) === String(x.id); }).slice(-10).map(function (p) { return { t: p.time, amount: p.amount, mode: p.mode, ref: p.ref, paid: p.paid, days: p.days, note: p.note }; });
+    return { ok: true, user: v };
   }
   if (op === 'create') {
     if (!q.id || !q.name || !q.mobile || !(Number(q.days) > 0)) return { ok: false, err: 'missing fields' };
     if (find_(q.id)) return { ok: false, err: 'exists' };
     var code = String(q.code || '').toUpperCase();
     if (code) { var all = rows_('lic'); for (var i = 0; i < all.length; i++) if (String(all[i].code).toUpperCase() === code) return { ok: false, err: 'code exists' }; }
-    sheet_('lic').appendRow([String(q.id), String(q.name).slice(0, 80), String(q.mobile).slice(0, 20), q.type === 'demo' ? 'demo' : 'paid', String(q.plan || '').slice(0, 60), Number(q.days), (q.mods || []).join(','), '', '', '', now, '', '', code, String(q.tok || '')]);
+    sheet_('lic').appendRow([String(q.id), String(q.name).slice(0, 80), String(q.mobile).slice(0, 20), q.type === 'demo' ? 'demo' : 'paid', String(q.plan || '').slice(0, 60), Number(q.days), (q.mods || []).join(','), '', '', '', now, '', '', code, String(q.tok || ''), String(q.email || '').slice(0, 80), '', '', '', '', '']);
     log_(q.id, 'created', q.type + ' ' + q.days + ' days');
     return { ok: true };
   }
@@ -125,6 +140,8 @@ function admin_(q, now) {
     log_(r.id, op === 'payment' ? 'payment' : 'extended', (op === 'payment' ? 'Rs ' + q.amount + ' ref ' + (q.ref || '-') + ', ' : '') + d + ' days');
   }
   else if (op === 'mods') { r.mods = (q.mods || []).join(','); log_(r.id, 'modules changed', r.mods); }
+  else if (op === 'email') { r.email = String(q.email || '').slice(0, 80); log_(r.id, 'email set', ''); }
+  else if (op === 'setpw') { if (!q.s || !q.h) return { ok: false, err: 'missing' }; r.pws = String(q.s); r.pwh = String(q.h); log_(r.id, 'password reset by admin', ''); }
   else if (op === 'resetdev') { r.dev = ''; log_(r.id, 'device reset', ''); }
   else if (op === 'delete') { sheet_('lic').deleteRow(r._r); log_(r.id, 'deleted', ''); return { ok: true }; }
   else return { ok: false, err: 'bad op' };
@@ -170,4 +187,36 @@ function backup_(q, now) {
     return { ok: false, err: 'not found' };
   }
   return { ok: false, err: 'bad request' };
+}
+
+/* ---------- forgot password: one-time code e-mailed to the registered address (Google MailApp, free daily quota) ---------- */
+function otpHash_(otp, id) { var pepper = PropertiesService.getScriptProperties().getProperty('ADMIN_SECRET') || ''; return hex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, otp + ':' + id + ':' + pepper, Utilities.Charset.UTF_8)); }
+function byMobile_(mobile) {
+  var m = String(mobile || '').replace(/\D/g, '').slice(-10), r = rows_('lic');
+  for (var i = 0; i < r.length; i++) if (m.length === 10 && String(r[i].mobile).replace(/\D/g, '').slice(-10) === m && r[i].status !== 'revoked') return r[i];
+  return null;
+}
+function fpwRequest_(q, now) {
+  var generic = { ok: true, msg: 'If this mobile number is registered with an e-mail address, a 6-digit code has been sent to it.' };
+  var r = byMobile_(q.mobile);
+  if (!r || !r.email) { Utilities.sleep(600); return generic; }
+  if (r.otpx && now < Number(r.otpx) - 9 * 60000) return generic; // at most one code per minute
+  var d = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, Utilities.getUuid() + Math.random(), Utilities.Charset.UTF_8);
+  var otp = String(((d[0] & 255) << 16 | (d[1] & 255) << 8 | (d[2] & 255)) % 900000 + 100000);
+  r.otp = otpHash_(otp, r.id); r.otpx = now + 10 * 60000; r.otpn = 0; put_('lic', r);
+  try {
+    MailApp.sendEmail({ to: String(r.email), subject: 'SunFlow ERP password reset code', name: 'SunFlow ERP',
+      body: 'Your SunFlow ERP password reset code is ' + otp + '.\nIt is valid for 10 minutes. If you did not ask for it, ignore this e-mail.' });
+  } catch (e) { log_(r.id, 'otp mail failed', String(e).slice(0, 80)); return { ok: false, err: 'mail' }; }
+  log_(r.id, 'password reset code sent', '');
+  return generic;
+}
+function fpwReset_(q, now) {
+  var r = byMobile_(q.mobile), bad = { ok: false, err: 'invalid or expired code' };
+  if (!r || !r.otp || now > Number(r.otpx)) { Utilities.sleep(600); return bad; }
+  if (Number(r.otpn) >= 5) { r.otp = ''; put_('lic', r); return bad; }
+  if (!eq_(otpHash_(String(q.otp || '').trim(), r.id), r.otp)) { r.otpn = Number(r.otpn) + 1; put_('lic', r); Utilities.sleep(600); return bad; }
+  if (!q.s || !q.h || String(q.s).length > 64 || String(q.h).length > 128) return { ok: false, err: 'bad request' };
+  r.pws = String(q.s); r.pwh = String(q.h); r.otp = ''; r.otpx = ''; r.otpn = 0; put_('lic', r); log_(r.id, 'password reset (OTP)', '');
+  return { ok: true };
 }
