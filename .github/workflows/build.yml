@@ -17,6 +17,7 @@ jobs:
           java-version: 17
       - run: npm install
       - run: npx cap add android
+      - run: sed -i 's/android:allowBackup="true"/android:allowBackup="false"/' android/app/src/main/AndroidManifest.xml
       - run: rm -rf android/app/src/main/res/mipmap-anydpi-v26 && cp -r icons/* android/app/src/main/res/
       - run: npx cap sync android
       - run: mkdir -p ~/.android && cp debug.keystore ~/.android/debug.keystore
